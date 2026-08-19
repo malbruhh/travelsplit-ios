@@ -13,9 +13,10 @@ import { AddExpenseModal } from './components/expenses/modals/AddExpenseModal';
 import { CreateTripModal } from './components/trips/CreateTripModal';
 import { MemberManagerModal } from './components/trips/MemberManagerModal';
 import { AuthPersonaModal } from './components/auth/AuthPersonaModal';
+import { AuthScreen } from './components/auth/AuthScreen';
+import { UserProfileModal } from './components/auth/UserProfileModal';
 import { ExportReportModal } from './components/export/ExportReportModal';
 import { AuditLogModal } from './components/audit/AuditLogModal';
-import { StartupRoadmapModal } from './components/common/StartupRoadmapModal';
 import { Toaster } from 'sonner';
 
 export const App: React.FC = () => {
@@ -23,7 +24,13 @@ export const App: React.FC = () => {
   const { initializeTrips, activeTrip, isLoading } = useTripStore();
   const { loadExpenses } = useExpenseStore();
   const { loadSettlements } = useSettlementStore();
-  const { activeTab } = useUiStore();
+  const {
+    activeTab,
+    isAuthModalOpen,
+    setAuthModalOpen,
+    isProfileModalOpen,
+    setProfileModalOpen,
+  } = useUiStore();
 
   useEffect(() => {
     const init = async () => {
@@ -63,9 +70,10 @@ export const App: React.FC = () => {
       <CreateTripModal />
       <MemberManagerModal />
       <AuthPersonaModal />
+      <AuthScreen open={isAuthModalOpen} onOpenChange={setAuthModalOpen} />
+      <UserProfileModal open={isProfileModalOpen} onOpenChange={setProfileModalOpen} />
       <ExportReportModal />
       <AuditLogModal />
-      <StartupRoadmapModal />
 
       {/* iOS styled Toaster */}
       <Toaster

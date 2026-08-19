@@ -19,9 +19,20 @@ db.exec(`
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
     email TEXT UNIQUE NOT NULL,
+    passwordHash TEXT,
     avatarColor TEXT NOT NULL,
     defaultCurrency TEXT DEFAULT 'USD',
     createdAt TEXT NOT NULL
+  );
+
+  CREATE TABLE IF NOT EXISTS refresh_tokens (
+    id TEXT PRIMARY KEY,
+    userId TEXT NOT NULL,
+    token TEXT UNIQUE NOT NULL,
+    expiresAt TEXT NOT NULL,
+    revoked INTEGER DEFAULT 0,
+    createdAt TEXT NOT NULL,
+    FOREIGN KEY(userId) REFERENCES users(id) ON DELETE CASCADE
   );
 
   CREATE TABLE IF NOT EXISTS trips (
@@ -88,3 +99,13 @@ db.exec(`
     FOREIGN KEY(tripId) REFERENCES trips(id) ON DELETE CASCADE
   );
 `);
+
+// Safe migration check for existing databases
+try {
+  const userColumns = db.prepare(`PRAGMA table_info(users)`).all() as Array<{ name: string }>;
+  if (!userColumns.some(c => c.name === 'passwordHash')) {
+    db.prepare(`ALTER TABLE users ADD COLUMN passwordHash TEXT`).run();
+  }
+} catch (e) {
+  console.warn('Migration check warning:', e);
+}

@@ -10,6 +10,7 @@ interface UiState {
   isExportModalOpen: boolean;
   isAuditModalOpen: boolean;
   isAuthModalOpen: boolean;
+  isProfileModalOpen: boolean;
   isMemberModalOpen: boolean;
   isMobilePreviewFrame: boolean;
   editingExpenseId: string | null;
@@ -25,6 +26,7 @@ interface UiState {
   setExportModalOpen: (open: boolean) => void;
   setAuditModalOpen: (open: boolean) => void;
   setAuthModalOpen: (open: boolean) => void;
+  setProfileModalOpen: (open: boolean) => void;
   setMemberModalOpen: (open: boolean) => void;
   toggleMobilePreviewFrame: () => void;
 }
@@ -37,6 +39,7 @@ export const useUiStore = create<UiState>((set) => ({
   isExportModalOpen: false,
   isAuditModalOpen: false,
   isAuthModalOpen: false,
+  isProfileModalOpen: false,
   isMemberModalOpen: false,
   isMobilePreviewFrame: true, // Default to iOS iPhone mobile viewport preview frame!
   editingExpenseId: null,
@@ -51,6 +54,7 @@ export const useUiStore = create<UiState>((set) => ({
   setExportModalOpen: (open) => set({ isExportModalOpen: open }),
   setAuditModalOpen: (open) => set({ isAuditModalOpen: open }),
   setAuthModalOpen: (open) => set({ isAuthModalOpen: open }),
+  setProfileModalOpen: (open) => set({ isProfileModalOpen: open }),
   setMemberModalOpen: (open) => set({ isMemberModalOpen: open }),
   toggleMobilePreviewFrame: () => set((state) => ({ isMobilePreviewFrame: !state.isMobilePreviewFrame })),
 }));

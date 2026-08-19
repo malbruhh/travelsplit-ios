@@ -5,13 +5,13 @@ import { useUiStore } from '../../store/useUiStore';
 import { rbacEngine } from '../../core/rbacEngine';
 import { Avatar, AvatarFallback } from '../ui/avatar';
 import { Badge } from '../ui/badge';
-import { ChevronDown, Share2, Shield, LogIn, Users } from 'lucide-react';
+import { ChevronDown, Share2, Shield, LogIn, Users, User } from 'lucide-react';
 import { triggerHaptic } from '../../lib/utils';
 
 export const IosHeader: React.FC = () => {
   const { currentUser, activeRole } = useAuthStore();
   const { activeTrip } = useTripStore();
-  const { setExportModalOpen, setAuditModalOpen, setAuthModalOpen, setMemberModalOpen } = useUiStore();
+  const { setExportModalOpen, setAuditModalOpen, setProfileModalOpen, setMemberModalOpen } = useUiStore();
 
   const roleLabel = rbacEngine.getRoleLabel(activeRole);
   const roleBadgeClass = rbacEngine.getRoleBadgeClass(activeRole);
@@ -19,18 +19,18 @@ export const IosHeader: React.FC = () => {
   return (
     <header className="sticky top-0 z-30 ios-glass border-b border-zinc-200/80 dark:border-zinc-800/80 px-4 py-2.5 transition-all">
       <div className="flex items-center justify-between">
-        {/* Left: Persona Switcher Pill */}
+        {/* Left: Persona Switcher & Profile Pill */}
         <button
           onClick={() => {
             triggerHaptic('light');
-            setAuthModalOpen(true);
+            setProfileModalOpen(true);
           }}
           className="flex items-center space-x-2 bg-zinc-100 dark:bg-zinc-800/90 hover:bg-zinc-200 dark:hover:bg-zinc-700/80 border border-zinc-200/60 dark:border-zinc-700/60 rounded-full px-2.5 py-1 transition-all active:scale-[0.97]"
         >
           <Avatar className="w-6 h-6 border-none">
             <AvatarFallback
               style={{ backgroundColor: currentUser?.avatarColor || '#007AFF' }}
-              className="text-[10px]"
+              className="text-[10px] text-white"
             >
               {currentUser?.name ? currentUser.name.slice(0, 2) : 'ME'}
             </AvatarFallback>

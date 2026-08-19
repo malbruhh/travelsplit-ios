@@ -2,7 +2,77 @@ import type { Trip, Expense, Settlement, User } from '../types';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:5000/api';
 
+let memoryAccessToken: string | null = null;
+let memoryRefreshToken: string | null = null;
+
+// Initialize tokens from localStorage
+try {
+  memoryAccessToken = localStorage.getItem('travelsplit_access_token');
+  memoryRefreshToken = localStorage.getItem('travelsplit_refresh_token');
+} catch {}
+
 export const api = {
+  setTokens(accessToken: string | null, refreshToken: string | null) {
+    memoryAccessToken = accessToken;
+    memoryRefreshToken = refreshToken;
+    try {
+      if (accessToken) localStorage.setItem('travelsplit_access_token', accessToken);
+      else localStorage.removeItem('travelsplit_access_token');
+
+      if (refreshToken) localStorage.setItem('travelsplit_refresh_token', refreshToken);
+      else localStorage.removeItem('travelsplit_refresh_token');
+    } catch {}
+  },
+
+  getAccessToken(): string | null {
+    return memoryAccessToken;
+  },
+
+  getRefreshToken(): string | null {
+    return memoryRefreshToken;
+  },
+
+  /**
+   * Enhanced fetch client with automatic JWT token attachment and 401 refresh interceptor
+   */
+  async authFetch(endpoint: string, options: RequestInit = {}): Promise<Response> {
+    const url = endpoint.startsWith('http') ? endpoint : `${API_BASE}${endpoint}`;
+    const headers = new Headers(options.headers || {});
+
+    if (memoryAccessToken && !headers.has('Authorization')) {
+      headers.set('Authorization', `Bearer ${memoryAccessToken}`);
+    }
+
+    let response = await fetch(url, { ...options, headers });
+
+    // Handle 401 Unauthorized -> Attempt token rotation
+    if (response.status === 401 && memoryRefreshToken && !endpoint.includes('/auth/refresh') && !endpoint.includes('/auth/login')) {
+      try {
+        const refreshRes = await fetch(`${API_BASE}/auth/refresh`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: memoryRefreshToken }),
+        });
+
+        if (refreshRes.ok) {
+          const tokens = await refreshRes.json();
+          api.setTokens(tokens.accessToken, tokens.refreshToken);
+
+          // Retry original request with newly issued access token
+          headers.set('Authorization', `Bearer ${tokens.accessToken}`);
+          response = await fetch(url, { ...options, headers });
+        } else {
+          // Token expired completely -> Clear session
+          api.setTokens(null, null);
+        }
+      } catch {
+        api.setTokens(null, null);
+      }
+    }
+
+    return response;
+  },
+
   async isServerOnline(): Promise<boolean> {
     try {
       const res = await fetch(`${API_BASE}/health`, { signal: AbortSignal.timeout(2000) });
@@ -13,29 +83,59 @@ export const api = {
   },
 
   // User Authentication
-  async register(name: string, email: string, defaultCurrency: string = 'USD', avatarColor?: string): Promise<{ user: User; token: string }> {
+  async register(
+    name: string,
+    email: string,
+    password?: string,
+    defaultCurrency: string = 'USD',
+    avatarColor?: string
+  ): Promise<{ user: User; accessToken: string; refreshToken: string }> {
     const res = await fetch(`${API_BASE}/auth/register`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name, email, defaultCurrency, avatarColor }),
+      body: JSON.stringify({ name, email, password, defaultCurrency, avatarColor }),
     });
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.error || 'Failed to register');
     }
-    return res.json();
+    const data = await res.json();
+    api.setTokens(data.accessToken, data.refreshToken);
+    return data;
   },
 
-  async login(email: string): Promise<{ user: User; token: string }> {
+  async login(email: string, password?: string): Promise<{ user: User; accessToken: string; refreshToken: string }> {
     const res = await fetch(`${API_BASE}/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ email }),
+      body: JSON.stringify({ email, password }),
     });
     if (!res.ok) {
       const err = await res.json();
       throw new Error(err.error || 'Failed to login');
     }
+    const data = await res.json();
+    api.setTokens(data.accessToken, data.refreshToken);
+    return data;
+  },
+
+  async logout(): Promise<void> {
+    try {
+      if (memoryRefreshToken) {
+        await fetch(`${API_BASE}/auth/logout`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ refreshToken: memoryRefreshToken }),
+        });
+      }
+    } finally {
+      api.setTokens(null, null);
+    }
+  },
+
+  async getMe(): Promise<User> {
+    const res = await api.authFetch('/auth/me');
+    if (!res.ok) throw new Error('Failed to fetch profile');
     return res.json();
   },
 
@@ -51,8 +151,8 @@ export const api = {
     return res.json();
   },
 
-  async updateProfile(id: string, updates: Partial<User>): Promise<User> {
-    const res = await fetch(`${API_BASE}/auth/profile/${id}`, {
+  async updateProfile(id: string, updates: Partial<User> & { password?: string }): Promise<User> {
+    const res = await api.authFetch(`/auth/profile/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates),
@@ -63,7 +163,7 @@ export const api = {
 
   // Trips
   async getTrips(): Promise<Trip[]> {
-    const res = await fetch(`${API_BASE}/trips`);
+    const res = await api.authFetch('/trips');
     if (!res.ok) throw new Error('Failed to fetch trips from server');
     return res.json();
   },
@@ -75,7 +175,7 @@ export const api = {
   },
 
   async joinTripByCode(joinCode: string, user: User): Promise<Trip> {
-    const res = await fetch(`${API_BASE}/trips/join`, {
+    const res = await api.authFetch('/trips/join', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ joinCode, user }),
@@ -88,7 +188,7 @@ export const api = {
   },
 
   async createTrip(trip: Partial<Trip>): Promise<Trip> {
-    const res = await fetch(`${API_BASE}/trips`, {
+    const res = await api.authFetch('/trips', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(trip),
@@ -98,7 +198,7 @@ export const api = {
   },
 
   async updateTrip(id: string, updates: Partial<Trip>): Promise<Trip> {
-    const res = await fetch(`${API_BASE}/trips/${id}`, {
+    const res = await api.authFetch(`/trips/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates),
@@ -108,19 +208,19 @@ export const api = {
   },
 
   async deleteTrip(id: string): Promise<void> {
-    const res = await fetch(`${API_BASE}/trips/${id}`, { method: 'DELETE' });
+    const res = await api.authFetch(`/trips/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error('Failed to delete trip on server');
   },
 
   // Expenses
   async getExpenses(tripId: string): Promise<Expense[]> {
-    const res = await fetch(`${API_BASE}/expenses/trip/${tripId}`);
+    const res = await api.authFetch(`/expenses/trip/${tripId}`);
     if (!res.ok) throw new Error('Failed to fetch expenses');
     return res.json();
   },
 
   async createExpense(expense: Partial<Expense>): Promise<Expense> {
-    const res = await fetch(`${API_BASE}/expenses`, {
+    const res = await api.authFetch('/expenses', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(expense),
@@ -130,7 +230,7 @@ export const api = {
   },
 
   async updateExpense(id: string, updates: Partial<Expense>): Promise<Expense> {
-    const res = await fetch(`${API_BASE}/expenses/${id}`, {
+    const res = await api.authFetch(`/expenses/${id}`, {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(updates),
@@ -140,19 +240,19 @@ export const api = {
   },
 
   async deleteExpense(id: string): Promise<void> {
-    const res = await fetch(`${API_BASE}/expenses/${id}`, { method: 'DELETE' });
+    const res = await api.authFetch(`/expenses/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error('Failed to delete expense on server');
   },
 
   // Settlements
   async getSettlements(tripId: string): Promise<Settlement[]> {
-    const res = await fetch(`${API_BASE}/settlements/trip/${tripId}`);
+    const res = await api.authFetch(`/settlements/trip/${tripId}`);
     if (!res.ok) throw new Error('Failed to fetch settlements');
     return res.json();
   },
 
   async createSettlement(settlement: Partial<Settlement>): Promise<Settlement> {
-    const res = await fetch(`${API_BASE}/settlements`, {
+    const res = await api.authFetch('/settlements', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(settlement),
@@ -162,7 +262,7 @@ export const api = {
   },
 
   async deleteSettlement(id: string): Promise<void> {
-    const res = await fetch(`${API_BASE}/settlements/${id}`, { method: 'DELETE' });
+    const res = await api.authFetch(`/settlements/${id}`, { method: 'DELETE' });
     if (!res.ok) throw new Error('Failed to delete settlement on server');
   },
 
@@ -173,7 +273,7 @@ export const api = {
     settlements: Settlement[];
     auditLogs: any[];
   }> {
-    const res = await fetch(`${API_BASE}/sync/${tripId}`);
+    const res = await api.authFetch(`/sync/${tripId}`);
     if (!res.ok) throw new Error('Failed to sync trip data');
     return res.json();
   }

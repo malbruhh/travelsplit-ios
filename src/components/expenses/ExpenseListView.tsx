@@ -9,6 +9,8 @@ import type { ExpenseCategory } from '../../types';
 import { Card, CardContent } from '../ui/card';
 import { Badge } from '../ui/badge';
 import { Input } from '../ui/input';
+import { Button } from '../ui/button';
+import { rbacEngine } from '../../core/rbacEngine';
 import { Search, Plus, Utensils, Train, Home, Ticket, ShoppingCart, ShoppingBag, AlertTriangle, Layers } from 'lucide-react';
 
 const CATEGORIES: { id: ExpenseCategory | 'all'; label: string; icon: React.ReactNode; color: string }[] = [
@@ -44,8 +46,9 @@ export const ExpenseListView: React.FC = () => {
     setSearchQuery,
   } = useExpenseStore();
   const { activeTrip } = useTripStore();
-  const { currentUser } = useAuthStore();
+  const { currentUser, activeRole } = useAuthStore();
   const { openAddExpense } = useUiStore();
+  const canAdd = rbacEngine.canAddExpense(activeRole);
 
   // Filtering
   const filteredExpenses = expenses.filter((exp) => {

@@ -10,15 +10,17 @@ interface AuthState {
   isAuthenticated: boolean;
   activeRole: TripRole;
   allUsers: User[];
-  sessionToken: string | null;
+  accessToken: string | null;
+  refreshToken: string | null;
 
   // Actions
   initializeAuth: () => Promise<void>;
-  login: (email: string) => Promise<boolean>;
-  register: (name: string, email: string, defaultCurrency?: string) => Promise<User>;
-  logout: () => void;
+  login: (email: string, password?: string) => Promise<boolean>;
+  register: (name: string, email: string, password?: string, defaultCurrency?: string) => Promise<User>;
+  logout: () => Promise<void>;
   switchUser: (userId: string) => Promise<void>;
   setActiveRole: (role: TripRole) => void;
+  updateProfile: (updates: Partial<User> & { password?: string }) => Promise<void>;
 }
 
 export const useAuthStore = create<AuthState>()(
@@ -28,9 +30,17 @@ export const useAuthStore = create<AuthState>()(
       isAuthenticated: false,
       activeRole: 'owner',
       allUsers: [],
-      sessionToken: null,
+      accessToken: null,
+      refreshToken: null,
 
       initializeAuth: async () => {
+        // Sync tokens to API client
+        const storedAccess = get().accessToken;
+        const storedRefresh = get().refreshToken;
+        if (storedAccess || storedRefresh) {
+          api.setTokens(storedAccess, storedRefresh);
+        }
+
         // Fetch remote users if online
         try {
           if (await api.isServerOnline()) {
@@ -58,15 +68,22 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      login: async (email: string) => {
+      login: async (email: string, password?: string) => {
         try {
           if (await api.isServerOnline()) {
-            const res = await api.login(email);
+            const res = await api.login(email, password);
             await userRepository.create(res.user);
-            set({ currentUser: res.user, isAuthenticated: true, sessionToken: res.token });
+            set({
+              currentUser: res.user,
+              isAuthenticated: true,
+              accessToken: res.accessToken,
+              refreshToken: res.refreshToken,
+            });
             return true;
           }
-        } catch {}
+        } catch (err) {
+          console.warn('Backend login failed, falling back to local:', err);
+        }
 
         const user = await userRepository.getByEmail(email);
         if (user) {
@@ -76,19 +93,27 @@ export const useAuthStore = create<AuthState>()(
         return false;
       },
 
-      register: async (name: string, email: string, defaultCurrency: string = 'USD') => {
+      register: async (name: string, email: string, password?: string, defaultCurrency: string = 'USD') => {
         const colors = ['#007AFF', '#34C759', '#FF9500', '#AF52DE', '#FF2D55', '#5AC8FA'];
         const randomColor = colors[Math.floor(Math.random() * colors.length)];
 
         try {
           if (await api.isServerOnline()) {
-            const res = await api.register(name, email, defaultCurrency, randomColor);
+            const res = await api.register(name, email, password, defaultCurrency, randomColor);
             await userRepository.create(res.user);
             const users = await userRepository.getAll();
-            set({ currentUser: res.user, isAuthenticated: true, allUsers: users, sessionToken: res.token });
+            set({
+              currentUser: res.user,
+              isAuthenticated: true,
+              allUsers: users,
+              accessToken: res.accessToken,
+              refreshToken: res.refreshToken,
+            });
             return res.user;
           }
-        } catch {}
+        } catch (err) {
+          console.warn('Backend register failed, falling back to local:', err);
+        }
 
         const existing = await userRepository.getByEmail(email);
         if (existing) {
@@ -111,12 +136,19 @@ export const useAuthStore = create<AuthState>()(
         return newUser;
       },
 
-      logout: () => {
-        set({ currentUser: null, isAuthenticated: false, activeRole: 'viewer', sessionToken: null });
+      logout: async () => {
+        await api.logout();
+        set({
+          currentUser: null,
+          isAuthenticated: false,
+          activeRole: 'viewer',
+          accessToken: null,
+          refreshToken: null,
+        });
       },
 
       switchUser: async (userId: string) => {
-        const user = (await userRepository.getById(userId)) || get().allUsers.find(u => u.id === userId);
+        const user = (await userRepository.getById(userId)) || get().allUsers.find((u) => u.id === userId);
         if (user) {
           set({ currentUser: user, isAuthenticated: true });
         }
@@ -124,11 +156,38 @@ export const useAuthStore = create<AuthState>()(
 
       setActiveRole: (role: TripRole) => {
         set({ activeRole: role });
-      }
+      },
+
+      updateProfile: async (updates) => {
+        const current = get().currentUser;
+        if (!current) return;
+
+        const updated: User = {
+          ...current,
+          name: updates.name || current.name,
+          avatarColor: updates.avatarColor || current.avatarColor,
+          defaultCurrency: updates.defaultCurrency || current.defaultCurrency,
+        };
+
+        await userRepository.update(current.id, updated);
+
+        try {
+          if (await api.isServerOnline()) {
+            await api.updateProfile(current.id, updates);
+          }
+        } catch {}
+
+        set({ currentUser: updated });
+      },
     }),
     {
       name: 'travelsplit-auth-storage',
-      partialize: (state) => ({ currentUser: state.currentUser, isAuthenticated: state.isAuthenticated, sessionToken: state.sessionToken }),
+      partialize: (state) => ({
+        currentUser: state.currentUser,
+        isAuthenticated: state.isAuthenticated,
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
+      }),
     }
   )
 );
