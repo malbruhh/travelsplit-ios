@@ -1,6 +1,6 @@
 # TravelSplit iOS — Project Overview & Documentation Map
 
-> Auto-generated and maintained by **Documentation Agent**. Last refreshed: `2026-08-19T00:53:17.573Z`.
+> Auto-generated and maintained by **Documentation Agent**. Last refreshed: `2026-08-19T00:56:17.921Z`.
 
 ---
 
