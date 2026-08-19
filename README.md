@@ -4,82 +4,76 @@
 
 ---
 
-## 🌟 Key Features
+## 🌟 Architecture & Features
 
 1. **Dual Perspective (Group Balance vs. Individual Consumption)**:
    - **Group Settlement Lens**: "Who owes whom how much?"
    - **Individual Consumption Lens**: "How much did *I personally consume* on this trip?" (True personal expenditure broken down by Food, Lodging, Transit, Activities, Shopping, Groceries, Emergency).
 2. **5-in-1 Splitting Engine**:
-   - **Equal**: Split evenly among all or selected subset.
-   - **Exact Amounts**: Specific currency values assigned per person.
-   - **Percentages**: Percentage-based distribution (must equal 100%).
-   - **Weighted Shares**: Weight-based splits (e.g. 1 share, 2 shares, 0.5 shares).
-   - **Itemized Receipt Breakdown**: Assign dish/item lines to specific people with automatic proportional distribution of taxes, tips, and service fees.
+   - **Equal**, **Exact Amounts**, **Percentages**, **Weighted Shares**, and **Itemized Receipt Breakdown** with proportional tax and tip distribution.
 3. **Smart Debt Minimization**:
-   - Reduces $N$-way debts into minimal direct transactions using a greedy bipartite graph balancing algorithm.
+   - Reduces $N$-way debts into minimal direct transfers via a greedy bipartite graph balancing algorithm.
 4. **Role-Based Access Control (RBAC)**:
-   - **Trip Owner**: Full administrative privileges (manage trip settings, members, modify any expense, delete trip).
+   - **Trip Owner**: Full administration (manage trip settings, members, modify any expense, delete trip).
    - **Editor / Member**: Add expenses, edit own expenses, record settlements.
    - **Viewer / Guest**: Read-only spending & balance insights.
-5. **iOS Human Interface Guidelines (HIG)**:
-   - Authentic iPhone 16 Pro viewport frame with dynamic island and desktop/fullscreen toggle.
-   - Frosted blur navigation headers and bottom tab bar.
-   - iOS bottom sheets (Vaul drawers) with spring drag physics.
-   - Tactile web haptic feedback on interactions.
-6. **Local-First & Offline Travel Ready**:
-   - 100% offline persistence using Dexie.js (IndexedDB) with immutable enterprise audit trails.
-7. **Enterprise Containerization**:
-   - Multi-stage Dockerfile with Gzip compression serving compressed static assets (~20MB total footprint).
+5. **Convex Real-Time Database**:
+   - Serverless reactive tables (`convex/schema.ts`, `convex/trips.ts`, `convex/expenses.ts`, `convex/settlements.ts`) with live WebSocket push updates.
+6. **Local-First Offline Fallback**:
+   - 100% offline persistence using Dexie.js (IndexedDB) with immutable audit logs.
+7. **CI/CD Pipeline with GitHub Actions & Vercel**:
+   - Quality gate running Vitest math tests, strict TypeScript checks, and automated Vercel deployment.
 
 ---
 
 ## 🚀 Quick Start (Local Development)
 
 ```bash
-# Navigate to project directory
-cd travelsplit-ios
-
-# Install dependencies
+# 1. Install dependencies
 npm install
 
-# Start local Vite dev server
+# 2. Start local backend server (port 5000)
+npm run server
+
+# 3. Start local Vite frontend (port 5173, in another terminal)
 npm run dev
 
-# Run unit tests
-npm test
+# 4. Run test suite
+npx vitest run
 ```
 
 The app will be available at `http://localhost:5173`.
 
 ---
 
-## 🐳 Docker Deployment
+## ⚙️ Environment Separation
 
-### 1. Build and Run with Docker Compose
-```bash
-docker compose up --build
-```
+The app supports separate environments out of the box:
 
-Access the production compressed app at `http://localhost:3000`.
-
-### 2. Standalone Docker Build
-```bash
-docker build -t travelsplit-ios .
-docker run -p 3000:80 travelsplit-ios
-```
+- **Local Dev (`npm run dev`)**: Reads [`.env.development`](file:///.env.development) &rarr; `http://localhost:5000/api`
+- **Production Build (`npm run build`)**: Reads [`.env.production`](file:///.env.production) &rarr; `/api` or Cloud URL
+- **Template Reference**: [`.env.example`](file:///.env.example)
 
 ---
 
-## 🧪 Testing Suite
+## 🚀 Continuous Deployment (GitHub Actions ➔ Vercel)
 
-Automated unit tests with Vitest cover:
-- Mathematical accuracy for equal splits with uneven cents (e.g. $100 across 3 people = $33.34, $33.33, $33.33).
-- Proportional distribution of taxes and tips in itemized receipts.
-- Circular debt elimination ($A \to B \to C \to A = \$0$).
-- Total group expenses $\equiv \sum \text{Individual Consumed}$.
-- RBAC permission guards for Owner, Editor, and Viewer roles.
+### Required GitHub Repository Secrets
+Add these secrets in **GitHub Repo &rarr; Settings &rarr; Secrets & Variables &rarr; Actions**:
+- `VERCEL_TOKEN`: Your Vercel API Token (from [vercel.com/account/tokens](https://vercel.com/account/tokens))
+- `VERCEL_ORG_ID`: Your Vercel Team / Account ID (from `.vercel/project.json` or Project Settings)
+- `VERCEL_PROJECT_ID`: Your Vercel Project ID
 
-Run tests with:
+### Deployment Branches:
+- **Push to `main`**: Automatically deploys the verified production build to your live production domain.
+- **Push to `dev` or Pull Requests**: Automatically creates a Vercel **Preview Deployment** for testing before merging.
+
+---
+
+## 🐳 Optional Self-Hosted / Offline Docker
+
 ```bash
-npx vitest run
+# Run both Backend API and Frontend with 1 command:
+docker compose up --build
 ```
+Access at `http://localhost:3000`.

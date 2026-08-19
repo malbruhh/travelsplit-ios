@@ -1,5 +1,6 @@
 import express from 'express';
 import cors from 'cors';
+import { authRouter } from './routes/auth';
 import { tripsRouter } from './routes/trips';
 import { expensesRouter } from './routes/expenses';
 import { settlementsRouter } from './routes/settlements';
@@ -13,6 +14,7 @@ app.use(cors());
 app.use(express.json());
 
 // Routes
+app.use('/api/auth', authRouter);
 app.use('/api/trips', tripsRouter);
 app.use('/api/expenses', expensesRouter);
 app.use('/api/settlements', settlementsRouter);

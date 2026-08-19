@@ -7,6 +7,8 @@
     "dev": "vite",
     "server": "tsx server/index.ts",
     "build": "tsc -b && vite build",
+    "docs": "tsx scripts/doc-agent.ts",
+    "doc-agent": "tsx scripts/doc-agent.ts",
     "lint": "oxlint",
     "preview": "vite preview"
   },
@@ -24,6 +26,7 @@
     "canvas-confetti": "^1.9.4",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
+    "convex": "^1.44.0",
     "cors": "^2.8.6",
     "dexie": "^4.4.5",
     "dotenv": "^17.4.2",

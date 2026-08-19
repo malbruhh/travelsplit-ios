@@ -12,6 +12,55 @@ export const api = {
     }
   },
 
+  // User Authentication
+  async register(name: string, email: string, defaultCurrency: string = 'USD', avatarColor?: string): Promise<{ user: User; token: string }> {
+    const res = await fetch(`${API_BASE}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name, email, defaultCurrency, avatarColor }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to register');
+    }
+    return res.json();
+  },
+
+  async login(email: string): Promise<{ user: User; token: string }> {
+    const res = await fetch(`${API_BASE}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email }),
+    });
+    if (!res.ok) {
+      const err = await res.json();
+      throw new Error(err.error || 'Failed to login');
+    }
+    return res.json();
+  },
+
+  async getUsers(): Promise<User[]> {
+    const res = await fetch(`${API_BASE}/auth/users`);
+    if (!res.ok) throw new Error('Failed to fetch users');
+    return res.json();
+  },
+
+  async getUserById(id: string): Promise<User> {
+    const res = await fetch(`${API_BASE}/auth/user/${id}`);
+    if (!res.ok) throw new Error('Failed to fetch user');
+    return res.json();
+  },
+
+  async updateProfile(id: string, updates: Partial<User>): Promise<User> {
+    const res = await fetch(`${API_BASE}/auth/profile/${id}`, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(updates),
+    });
+    if (!res.ok) throw new Error('Failed to update profile');
+    return res.json();
+  },
+
   // Trips
   async getTrips(): Promise<Trip[]> {
     const res = await fetch(`${API_BASE}/trips`);

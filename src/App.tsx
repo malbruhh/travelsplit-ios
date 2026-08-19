@@ -15,6 +15,7 @@ import { MemberManagerModal } from './components/trips/MemberManagerModal';
 import { AuthPersonaModal } from './components/auth/AuthPersonaModal';
 import { ExportReportModal } from './components/export/ExportReportModal';
 import { AuditLogModal } from './components/audit/AuditLogModal';
+import { StartupRoadmapModal } from './components/common/StartupRoadmapModal';
 import { Toaster } from 'sonner';
 
 export const App: React.FC = () => {
@@ -64,6 +65,7 @@ export const App: React.FC = () => {
       <AuthPersonaModal />
       <ExportReportModal />
       <AuditLogModal />
+      <StartupRoadmapModal />
 
       {/* iOS styled Toaster */}
       <Toaster

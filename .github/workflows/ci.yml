@@ -1,0 +1,34 @@
+name: CI Quality Gate & Test Suite
+
+on:
+  push:
+    branches: [main, dev]
+  pull_request:
+    branches: [main, dev]
+
+jobs:
+  validate:
+    name: Lint, Test & Typecheck
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Run Mathematical & RBAC Unit Tests
+        run: npx vitest run
+
+      - name: Strict TypeScript Verification
+        run: npx tsc -b
+
+      - name: Verify Production Bundle Build
+        run: npm run build
